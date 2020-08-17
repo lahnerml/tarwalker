@@ -20,12 +20,15 @@ int main(int argc, char *argv[]) {
   }
 
   const std::filesystem::path file_name{argv[1]};
-  std::ifstream fs(file_name.string(), std::ios::binary);
-  std::vector<uint8_t> cont;
-  const size_t tar_size = std::filesystem::file_size(file_name);
-  cont.resize(tar_size);
-  fs.read(reinterpret_cast<char *>(cont.data()), tar_size);
-  fs.close();
+  const std::vector<uint8_t> cont = [&]() {
+    std::vector<uint8_t> res;
+    const size_t tar_size = std::filesystem::file_size(file_name);
+    res.resize(tar_size);
+    std::ifstream fs(file_name.string(), std::ios::binary);
+    fs.read(reinterpret_cast<char *>(res.data()), tar_size);
+    fs.close();
+    return res;
+  }();
 
   size_t offset = 0;
   constexpr size_t block_size = 512;
@@ -33,18 +36,24 @@ int main(int argc, char *argv[]) {
   while (std::any_of(std::next(cont.cbegin(), offset),
                      std::next(cont.cbegin(), offset + 2 * block_size),
                      [](const uint8_t c) { return c != 0; })) {
-    posix_header header;
-    posix_block block;
-    std::memcpy(&header, cont.data() + offset, block_size);
+    const posix_header header = [&]() {
+      posix_header h;
+      std::memcpy(&h, cont.data() + offset, block_size);
+      return h;
+    }();
     offset += block_size;
 
-    size_t file_size = std::strtol(header.size, nullptr, 10);
+    const size_t file_size = std::strtol(header.size, nullptr, 10);
     const size_t n_blocks = 1 + file_size / block_size;
 
     std::cout << header << std::endl;
 
     for (size_t i = 0; i < n_blocks; ++i) {
-      std::memcpy(&block, cont.data() + offset, block_size);
+      const posix_block block = [&]() {
+        posix_block b;
+        std::memcpy(&b, cont.data() + offset, block_size);
+        return b;
+      }();
       offset += block_size;
       std::cout << block << std::endl;
     }
