@@ -1,8 +1,17 @@
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <vector>
 
 #include "tar_utility.hpp"
+
+[[maybe_unused]] const auto showContainer = [](const auto container,
+                                               const std::string &sep) {
+  std::for_each(container.begin(), container.end(),
+                [&sep](const auto &element) { std::cout << element << sep; });
+  std::cout << std::endl;
+};
 
 int main(int argc, char *argv[]) {
   if (argc != 2) {
@@ -12,17 +21,18 @@ int main(int argc, char *argv[]) {
 
   const std::filesystem::path file_name{argv[1]};
   std::ifstream fs(file_name.string(), std::ios::binary);
-  std::string cont;
+  std::vector<uint8_t> cont;
   const size_t tar_size = std::filesystem::file_size(file_name);
   cont.resize(tar_size);
-  fs.read(&cont.front(), tar_size);
+  fs.read(reinterpret_cast<char *>(cont.data()), tar_size);
   fs.close();
 
   size_t offset = 0;
   constexpr size_t block_size = 512;
-  const std::string end_sequence (2 * block_size, 0);
 
-  while (cont.compare(offset, end_sequence.size(), end_sequence)) {
+  while (std::any_of(std::next(cont.cbegin(), offset),
+                     std::next(cont.cbegin(), offset + 2 * block_size),
+                     [](const uint8_t c) { return c != 0; })) {
     posix_header header;
     posix_block block;
     std::memcpy(&header, cont.data() + offset, block_size);
