@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     }();
     offset += block_size;
 
-    const size_t file_size = std::strtol(header.size, nullptr, 10);
+    const size_t file_size = std::strtol(header.size, nullptr, 8);
     const size_t n_blocks = 1 + file_size / block_size;
 
     std::cout << header << std::endl;
